@@ -29,7 +29,7 @@ def keep_alive():
 # ---------------- Logging ----------------
 logging.basicConfig(level=logging.INFO)
 
-# ---------------- Imports ----------------
+# ---------------- Bot Imports ----------------
 TOKEN = os.environ.get("TOKEN")
 
 from database.db import init_db
@@ -40,22 +40,21 @@ from handlers.start_handler import (
 from handlers.admin_handler import admin_panel
 from handlers.admin_actions import handle_admin_buttons, handle_admin_text
 
+
 # ---------------- MAIN ----------------
 async def main():
 
     print("Starting Flask and Bot...")
     keep_alive()
-
     init_db()
 
     bot_app = ApplicationBuilder().token(TOKEN).build()
 
-    # Commands
+    # Handlers
     bot_app.add_handler(CommandHandler("start", start))
     bot_app.add_handler(CommandHandler("leaderboard", show_leaderboard))
     bot_app.add_handler(CommandHandler("admin", admin_panel))
 
-    # Quiz handlers
     bot_app.add_handler(CallbackQueryHandler(quiz, pattern="^startquiz$"))
     bot_app.add_handler(CallbackQueryHandler(answer, pattern="^ans_"))
     bot_app.add_handler(CallbackQueryHandler(restart, pattern="^restartquiz$"))
@@ -63,17 +62,19 @@ async def main():
     bot_app.add_handler(CallbackQueryHandler(show_leaderboard, pattern="^showleader$"))
     bot_app.add_handler(CallbackQueryHandler(set_quiz_size, pattern="^set_"))
 
-    # Admin handlers
     bot_app.add_handler(CallbackQueryHandler(handle_admin_buttons, pattern="^admin_"))
     bot_app.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, handle_admin_text))
 
     print("BOT IS RUNNING...")
 
-    # ⭐ Proper polling
-    await bot_app.run_polling(
-        drop_pending_updates=True,
-        allowed_updates=None
-    )
+    # 🔥 Correct polling lifecycle
+    await bot_app.initialize()
+    await bot_app.start()
+    await bot_app.updater.start_polling()
+
+    # ✅ KEEP BOT ALIVE (IMPORTANT)
+    while True:
+        await asyncio.sleep(3600)
 
 
 if __name__ == "__main__":
