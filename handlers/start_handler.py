@@ -7,8 +7,7 @@ from services.quiz_service import (
 
 active_msg = {}
 quiz_active = {}
-quiz_size_store = {}   # ⭐ store selected size
-
+quiz_size_store = {}
 
 # ---------- KEYBOARD ----------
 def build_keyboard(options):
@@ -23,19 +22,24 @@ def build_keyboard(options):
     return InlineKeyboardMarkup(kb)
 
 
+# ---------- SAFE REMOVE JOB ----------
+def clear_timer(context, uid):
+    if context.job_queue:
+        for job in context.job_queue.get_jobs_by_name(str(uid)):
+            job.schedule_removal()
+
+
 # ---------- SEND QUESTION ----------
 async def send_question(chat_id, context, uid):
 
     if not quiz_active.get(uid, False):
         return
 
-    # remove old timer
-    for job in context.job_queue.get_jobs_by_name(str(uid)):
-        job.schedule_removal()
+    clear_timer(context, uid)
 
     qdata = get_question(uid)
 
-    # QUIZ FINISHED
+    # FINISHED
     if not qdata:
         s, total = get_score(uid)
         update_leaderboard(uid)
@@ -60,12 +64,13 @@ async def send_question(chat_id, context, uid):
 
     active_msg[uid] = (msg.chat_id, msg.message_id)
 
-    context.job_queue.run_once(
-        time_up,
-        15,
-        data={"uid": uid, "chat": chat_id},
-        name=str(uid)
-    )
+    if context.job_queue:
+        context.job_queue.run_once(
+            time_up,
+            15,
+            data={"uid": uid, "chat": chat_id},
+            name=str(uid)
+        )
 
 
 # ---------- TIMEOUT ----------
@@ -82,10 +87,10 @@ async def time_up(context):
 
 
 # =====================================================
-# ⭐ QUIZ FLOW
+# QUIZ FLOW
 # =====================================================
 
-# Step 1 → show size options
+# Show size options
 async def quiz(update, context):
     query = update.callback_query
     await query.answer()
@@ -102,20 +107,19 @@ async def quiz(update, context):
     )
 
 
-# Step 2 → size selected
+# SET QUIZ SIZE + START
 async def set_quiz_size(update, context):
     query = update.callback_query
     await query.answer()
 
     uid = query.from_user.id
     username = query.from_user.first_name
-
     size = int(query.data.split("_")[1])
-    quiz_size_store[uid] = size
 
-    # start quiz
+    quiz_size_store[uid] = size
     quiz_active[uid] = True
-    start_user(uid, username)
+
+    start_user(uid, username, size)
 
     await query.message.reply_text(f"✅ Quiz started with {size} questions!")
     await send_question(query.message.chat_id, context, uid)
@@ -144,11 +148,8 @@ async def answer(update, context):
     if not quiz_active.get(uid, False):
         return
 
-    # remove timer
-    for job in context.job_queue.get_jobs_by_name(str(uid)):
-        job.schedule_removal()
+    clear_timer(context, uid)
 
-    # prevent double click
     try:
         await query.edit_message_reply_markup(None)
     except:
@@ -174,8 +175,7 @@ async def stop(update, context):
     uid = query.from_user.id
     quiz_active[uid] = False
 
-    for job in context.job_queue.get_jobs_by_name(str(uid)):
-        job.schedule_removal()
+    clear_timer(context, uid)
 
     await query.message.reply_text("⛔ Quiz stopped.")
 
@@ -187,8 +187,9 @@ async def restart(update, context):
 
     uid = query.from_user.id
     username = query.from_user.first_name
+    size = quiz_size_store.get(uid, 20)
 
-    start_user(uid, username)
+    start_user(uid, username, size)
     quiz_active[uid] = True
 
     await send_question(query.message.chat_id, context, uid)
