@@ -6,7 +6,6 @@ order = {}
 index = {}
 score = {}
 
-# 👉 your questions list here
 from data.questions import QUESTIONS
 
 
@@ -17,8 +16,10 @@ async def quiz(update, context):
 
     uid = query.from_user.id
 
-    order[uid] = random.sample(range(len(QUESTIONS)),
-                               min(100, len(QUESTIONS)))
+    order[uid] = random.sample(
+        range(len(QUESTIONS)),
+        min(100, len(QUESTIONS))
+    )
     index[uid] = 0
     score[uid] = 0
 
@@ -43,12 +44,9 @@ async def send_question(query, uid):
         for n, opt in enumerate(q["options"])
     ]
 
-    # restart + stop buttons
     buttons.append([
-        InlineKeyboardButton("🔄 Restart",
-                             callback_data="restartquiz"),
-        InlineKeyboardButton("⛔ Stop",
-                             callback_data="stopquiz"),
+        InlineKeyboardButton("🔄 Restart", callback_data="restartquiz"),
+        InlineKeyboardButton("⛔ Stop", callback_data="stopquiz"),
     ])
 
     text = (
@@ -63,7 +61,6 @@ async def send_question(query, uid):
             reply_markup=InlineKeyboardMarkup(buttons)
         )
     except:
-        # fallback if message same
         await query.message.reply_text(
             text,
             reply_markup=InlineKeyboardMarkup(buttons)
@@ -95,8 +92,10 @@ async def restart(update, context):
 
     uid = query.from_user.id
 
-    order[uid] = random.sample(range(len(QUESTIONS)),
-                               min(100, len(QUESTIONS)))
+    order[uid] = random.sample(
+        range(len(QUESTIONS)),
+        min(100, len(QUESTIONS))
+    )
     index[uid] = 0
     score[uid] = 0
 
@@ -118,23 +117,28 @@ async def stop(update, context):
 
     await query.edit_message_text(text)
 
-    #===============quiz set handler=================
-    async def set_quiz_size(update, context):
+
+# ================= QUIZ SIZE =================
+async def set_quiz_size(update, context):
     query = update.callback_query
     await query.answer()
 
     uid = query.from_user.id
-    username = query.from_user.first_name
-
     size = int(query.data.split("_")[1])
 
-    quiz_active[uid] = True
-    start_user(uid, username, size)
+    order[uid] = random.sample(
+        range(len(QUESTIONS)),
+        min(size, len(QUESTIONS))
+    )
+    index[uid] = 0
+    score[uid] = 0
 
-    await send_question(query.message.chat_id, context, uid)
-
+    await send_question(query, uid)
 
 
 # ================= LEADERBOARD =================
 async def show_leaderboard(update, context):
-    await update.message.reply_text("🏆 Leaderboard coming soon")
+    if update.message:
+        await update.message.reply_text("🏆 Leaderboard coming soon")
+    else:
+        await update.callback_query.message.reply_text("🏆 Leaderboard coming soon")
