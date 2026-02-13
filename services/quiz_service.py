@@ -1,54 +1,72 @@
 import json
 import random
+import os
 
-# ---------- LOAD QUESTIONS ----------
-with open("data/questions.json", "r", encoding="utf-8") as f:
-    QUESTIONS = json.load(f)
+# ================= LOAD QUESTIONS =================
+QUESTIONS = []
 
+def load_questions():
+    global QUESTIONS
+    try:
+        with open("data/questions.json", "r", encoding="utf-8") as f:
+            QUESTIONS = json.load(f)
+        print(f"[Quiz] Loaded {len(QUESTIONS)} questions")
+    except Exception as e:
+        print("[Quiz] Failed to load questions:", e)
+        QUESTIONS = []
+
+# First load on startup
+load_questions()
+
+
+# ================= CONFIG =================
 SET_SIZE = 100
 
-# ---------- RUNTIME STORAGE ----------
 score = {}
 index = {}
 order = {}
 username_store = {}
 leaderboard = {}
-answered_flag = {}   # prevent double click crash
+answered_flag = {}
 
 
-# ---------- START USER ----------
-def start_user(uid, username=None):
+# ================= USER START =================
+def start_user(uid, username=None, set_size=None):
+    if not QUESTIONS:
+        return
+
     username_store[uid] = username or str(uid)
 
     score[uid] = 0
     index[uid] = 0
     answered_flag[uid] = False
 
-    size = min(SET_SIZE, len(QUESTIONS))
+    size = set_size or SET_SIZE
+    size = min(size, len(QUESTIONS))
+
     order[uid] = random.sample(range(len(QUESTIONS)), size)
 
 
-# ---------- GET QUESTION ----------
+# ================= GET QUESTION =================
 def get_question(uid):
     if uid not in index:
         return None
 
-    if index[uid] >= len(order[uid]):
+    if index[uid] >= len(order.get(uid, [])):
         return None
 
     answered_flag[uid] = False
     return QUESTIONS[order[uid][index[uid]]]
 
 
-# ---------- ANSWER ----------
+# ================= ANSWER =================
 def answer_question(uid, chosen):
 
-    # Prevent double tap crash
     if answered_flag.get(uid, False):
-        return False, "Already Answered"
+        return False, None
 
     if uid not in order or index[uid] >= len(order[uid]):
-        return False, "Quiz Finished"
+        return False, None
 
     answered_flag[uid] = True
 
@@ -63,18 +81,18 @@ def answer_question(uid, chosen):
     return right, qdata["options"][correct]
 
 
-# ---------- SKIP ----------
+# ================= SKIP =================
 def skip_question(uid):
     if uid in index:
         index[uid] += 1
 
 
-# ---------- SCORE ----------
+# ================= SCORE =================
 def get_score(uid):
     return score.get(uid, 0), len(order.get(uid, []))
 
 
-# ---------- LEADERBOARD ----------
+# ================= LEADERBOARD =================
 def update_leaderboard(uid):
     s, total = get_score(uid)
 
@@ -102,9 +120,17 @@ def get_leaderboard():
     return text
 
 
-# ---------- RESET ----------
+# ================= RESET =================
 def reset_user(uid):
     score.pop(uid, None)
     index.pop(uid, None)
     order.pop(uid, None)
     answered_flag.pop(uid, None)
+    username_store.pop(uid, None)
+    leaderboard.pop(uid, None)
+
+
+# ================= RELOAD SUPPORT ⭐ =================
+def reload_questions():
+    load_questions()
+    return f"✅ Reloaded {len(QUESTIONS)} questions!"

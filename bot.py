@@ -24,9 +24,7 @@ def run_flask():
     flask_app.run(host="0.0.0.0", port=port)
 
 def keep_alive():
-    t = threading.Thread(target=run_flask)
-    t.daemon = True
-    t.start()
+    threading.Thread(target=run_flask, daemon=True).start()
 
 # ---------------- Logging ----------------
 logging.basicConfig(level=logging.INFO)
