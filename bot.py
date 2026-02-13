@@ -12,7 +12,7 @@ from telegram.ext import (
     filters,
 )
 
-# ---------------- Flask Setup (Render keep alive) ----------------
+# ---------------- Flask Setup ----------------
 flask_app = Flask(__name__)
 
 @flask_app.route("/")
@@ -29,7 +29,7 @@ def keep_alive():
 # ---------------- Logging ----------------
 logging.basicConfig(level=logging.INFO)
 
-# ---------------- Bot Logic Imports ----------------
+# ---------------- Imports ----------------
 TOKEN = os.environ.get("TOKEN")
 
 from database.db import init_db
@@ -40,20 +40,15 @@ from handlers.start_handler import (
 from handlers.admin_handler import admin_panel
 from handlers.admin_actions import handle_admin_buttons, handle_admin_text
 
-
 # ---------------- MAIN ----------------
 async def main():
+
     print("Starting Flask and Bot...")
     keep_alive()
 
     init_db()
 
-    # IMPORTANT → JobQueue enabled
-    bot_app = (
-        ApplicationBuilder()
-        .token(TOKEN)
-        .build()
-    )
+    bot_app = ApplicationBuilder().token(TOKEN).build()
 
     # Commands
     bot_app.add_handler(CommandHandler("start", start))
@@ -73,10 +68,12 @@ async def main():
     bot_app.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, handle_admin_text))
 
     print("BOT IS RUNNING...")
-    await bot_app.initialize()
-    await bot_app.start()
-    await bot_app.updater.start_polling()
-    await bot_app.stop()
+
+    # ⭐ Proper polling
+    await bot_app.run_polling(
+        drop_pending_updates=True,
+        allowed_updates=None
+    )
 
 
 if __name__ == "__main__":
