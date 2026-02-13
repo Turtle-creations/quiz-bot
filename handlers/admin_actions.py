@@ -3,36 +3,44 @@ import os
 from telegram import Update
 from telegram.ext import ContextTypes
 
+# ✅ correct place to import
+from utils.question_loader import force_reload
+
 QUESTIONS_FILE = "data/questions.json"
 USERS_FILE = "data/users.json"
+
 
 # ---------- HELPERS ----------
 
 def load_questions():
     if not os.path.exists(QUESTIONS_FILE):
         return []
+
     try:
         with open(QUESTIONS_FILE, "r", encoding="utf-8") as f:
             data = json.load(f)
-            # ensure id always int
             for q in data:
                 q["id"] = int(q["id"])
             return data
-    except:
+    except Exception:
         return []
+
 
 def save_questions(data):
     with open(QUESTIONS_FILE, "w", encoding="utf-8") as f:
         json.dump(data, f, indent=4, ensure_ascii=False)
 
+
 def load_users():
     if not os.path.exists(USERS_FILE):
         return []
+
     try:
         with open(USERS_FILE, "r") as f:
             return json.load(f)
-    except:
+    except Exception:
         return []
+
 
 # ---------- BUTTON HANDLER ----------
 
@@ -58,7 +66,7 @@ async def handle_admin_buttons(update: Update, context: ContextTypes.DEFAULT_TYP
 
         await query.message.reply_text(msg)
 
-    # DELETE
+    # DELETE MODE
     elif data == "admin_del":
         context.user_data["await_delete_id"] = True
         await query.message.reply_text("🗑 Send Question ID to delete")
@@ -84,10 +92,11 @@ async def handle_admin_buttons(update: Update, context: ContextTypes.DEFAULT_TYP
             "Correct(1-4)"
         )
 
-    # BROADCAST
+    # BROADCAST MODE
     elif data == "admin_bc":
         context.user_data["await_broadcast"] = True
         await query.message.reply_text("📢 Send message to broadcast")
+
 
 # ---------- TEXT HANDLER ----------
 
@@ -95,7 +104,7 @@ async def handle_admin_text(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
     text = update.message.text.strip()
 
-    # ADD QUESTION
+    # ---------- ADD QUESTION ----------
     if context.user_data.get("admin_mode") == "add_question":
 
         lines = text.split("\n")
@@ -117,7 +126,6 @@ async def handle_admin_text(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
         data = load_questions()
 
-        # SAFE ID GENERATION
         ids = [int(q["id"]) for q in data] if data else []
         new_id = (max(ids) if ids else 0) + 1
 
@@ -130,27 +138,37 @@ async def handle_admin_text(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
         save_questions(data)
 
+        # ✅ AUTO RELOAD QUESTIONS
+        force_reload()
+
         context.user_data["admin_mode"] = None
         await update.message.reply_text(f"✅ Added with ID {new_id}")
         return
 
-    # DELETE RECEIVE
-    if context.user_data.get("await_delete_id"):
-        data = load_questions()
 
+    # ---------- DELETE ----------
+    if context.user_data.get("await_delete_id"):
+
+        data = load_questions()
         new_data = [q for q in data if str(q["id"]) != text]
 
         if len(new_data) == len(data):
             await update.message.reply_text("❌ ID not found")
         else:
             save_questions(new_data)
+
+            # ✅ AUTO RELOAD
+            force_reload()
+
             await update.message.reply_text("✅ Deleted")
 
         context.user_data["await_delete_id"] = False
         return
 
-    # BROADCAST SEND
+
+    # ---------- BROADCAST ----------
     if context.user_data.get("await_broadcast"):
+
         users = load_users()
 
         sent = 0

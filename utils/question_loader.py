@@ -1,30 +1,37 @@
 import json
-import os
 import time
+import logging
+from pathlib import Path
 
-QUESTIONS = []
-_last_modified = 0
+logger = logging.getLogger(__name__)
 
-FILE_PATH = "data/questions.json"   # adjust if path different
+QUESTION_FILE = Path("data/questions.json")
 
+# Cache
+_cache = []
+_last_load_time = 0
+_reload_interval = 5  # seconds (auto reload check)
 
 def load_questions():
-    global QUESTIONS, _last_modified
+    global _cache, _last_load_time
 
-    if not os.path.exists(FILE_PATH):
-        print("[QuestionLoader] File not found")
-        QUESTIONS = []
-        return QUESTIONS
+    try:
+        now = time.time()
 
-    modified = os.path.getmtime(FILE_PATH)
+        # Reload only if time passed
+        if now - _last_load_time > _reload_interval:
+            with open(QUESTION_FILE, "r", encoding="utf-8") as f:
+                _cache = json.load(f)
 
-    # reload only if changed
-    if modified != _last_modified:
-        print("[QuestionLoader] Reloading questions...")
-        with open(FILE_PATH, "r", encoding="utf-8") as f:
-            QUESTIONS = json.load(f)
+            _last_load_time = now
+            logger.info(f"[Questions Reloaded] {_last_load_time}")
 
-        _last_modified = modified
-        print(f"[QuestionLoader] Loaded {len(QUESTIONS)} questions")
+        return _cache
 
-    return QUESTIONS
+    except Exception as e:
+        logger.exception("Question load crash")
+        return _cache
+
+def force_reload():
+    global _last_load_time
+    _last_load_time = 0

@@ -110,13 +110,19 @@ async def answer(update, context):
 
 
 # ================= RESTART =================
+
 async def restart(update, context):
     try:
         query = update.callback_query
         await query.answer()
 
         uid = query.from_user.id
+
         QUESTIONS = load_questions()
+
+        if not QUESTIONS:
+            await query.edit_message_text("❌ No questions available")
+            return
 
         size = quiz_size.get(uid, 10)
 
@@ -124,6 +130,7 @@ async def restart(update, context):
             range(len(QUESTIONS)),
             min(size, len(QUESTIONS))
         )
+
         index[uid] = 0
         score[uid] = 0
 
@@ -131,6 +138,8 @@ async def restart(update, context):
 
     except Exception:
         logger.exception("Restart crash")
+
+    
 
 
 # ================= STOP =================
